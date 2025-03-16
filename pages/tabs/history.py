@@ -1,32 +1,58 @@
 import streamlit as st
-from models.database import get_all
-from utils.helpers import format_timestamp
+import sqlite3
+import json
 
-def show():
-    st.header("Riwayat Diagnosa")
-    
-    # Hanya admin yang bisa lihat semua riwayat
-    if st.session_state.user['role'] == 'admin':
-        history = get_all('history')
-    else:
-        history = get_history_by_user(st.session_state.user['id'])
-    
-    for entry in history:
-        with st.expander(f"Diagnosa #{entry['id']}"):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown(f"""
-                **Tanggal**: {format_timestamp(entry['timestamp'])}  
-                **Gejala Terpilih**: {len(json.loads(entry['symptoms']))} gejala
-                """)
-            with col2:
-                st.markdown(f"""
-                **Penyakit**: {entry['disease_id']}  
-                **Probabilitas**: {entry['probability']}%
-                """)
-            if st.button("Detail", key=f"detail_{entry['id']}"):
-                show_diagnosis_details(entry)
+st.title("📜 Riwayat Diagnosa")
 
-def show_diagnosis_details(entry):
-    # Implementasi tampilan detail diagnosa
-    pass
+# Ambil user_id dari session (pastikan user login)
+user_id = st.session_state.user["id"] if "user" in st.session_state and st.session_state.user else None
+
+if user_id is None:
+    st.warning("Silakan login untuk melihat riwayat diagnosa.")
+    st.stop()
+
+# Fungsi menyimpan riwayat diagnosa
+def save_diagnosis(user_id, selected_symptoms, disease, score, skincare):
+    if user_id is None:
+        return False  # Pastikan user login sebelum menyimpan
+
+    conn = sqlite3.connect("database.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO history (user_id, symptoms, disease, score, skincare) 
+        VALUES (?, ?, ?, ?, ?)
+    """, (user_id, json.dumps(selected_symptoms), disease, score, json.dumps(skincare)))
+
+    conn.commit()
+    conn.close()
+    return True
+
+
+# Ambil riwayat dari database
+def get_history(user_id):
+    conn = sqlite3.connect("database.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT symptoms, disease, score, skincare, timestamp 
+        FROM history 
+        WHERE user_id = ? 
+        ORDER BY timestamp DESC
+    """, (user_id,))
+    
+    history = cursor.fetchall()
+    conn.close()
+    return history
+
+history_data = get_history(user_id)
+
+if history_data:
+    for symptoms, disease, score, skincare, timestamp in history_data:
+        st.write(f"🕒 **{timestamp}**")
+        st.write(f"🩺 **Diagnosis:** {disease}")
+        st.write(f"📊 **Skor:** {score:.2f}")
+        st.write(f"🔍 **Gejala yang Dipilih:** {', '.join(json.loads(symptoms))}")
+        st.write(f"💊 **Rekomendasi Skincare:** {', '.join(json.loads(skincare))}")
+        st.markdown("---")
+else:
+    st.info("Belum ada riwayat diagnosa.")

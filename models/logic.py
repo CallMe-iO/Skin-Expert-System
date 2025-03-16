@@ -1,37 +1,36 @@
-from models.database import get_all, get_by_id
+import sqlite3
 import json
 
-def calculate_disease_probability(selected_symptoms):
-    """
-    Menghitung probabilitas penyakit berdasarkan:
-    - Gejala wajib (required_symptoms)
-    - Gejala tambahan dengan bobot (weighted_symptoms)
-    """
-    diseases = get_all('diseases')
-    results = []
+def diagnose(selected_symptoms):
+    conn = sqlite3.connect("database.db")
+    cursor = conn.cursor()
+
+    # Ambil data penyakit
+    cursor.execute("SELECT id, name, required_symptoms, weighted_symptoms, skincare FROM diseases")
+    diseases = cursor.fetchall()
+
+    diagnosis_result = []
 
     for disease in diseases:
-        # Parse data dari database
-        required = json.loads(disease['required_symptoms'])
-        weighted = json.loads(disease['weighted_symptoms'])
-        
-        # Step 1: Cek gejala wajib
-        if not all(symptom in selected_symptoms for symptom in required):
-            continue  # Lewat jika gejala wajib tidak terpenuhi
-        
-        # Step 2: Hitung skor bobot
-        score = 0
-        for symptom_id in selected_symptoms:
-            score += weighted.get(str(symptom_id), 0)
-        
-        # Step 3: Normalisasi skor
-        max_score = sum(weighted.values())
-        probability = (score / max_score) * 100 if max_score > 0 else 0
+        disease_id, name, required_symptoms, weighted_symptoms, skincare = disease
 
-        results.append({
-            'disease': disease,
-            'probability': round(probability, 2)
-        })
+        required_symptoms = json.loads(required_symptoms)  # Convert JSON string to list
+        weighted_symptoms = json.loads(weighted_symptoms)  # Convert JSON string to dict
+        skincare = json.loads(skincare)  # Convert JSON string to list
 
-    # Urutkan berdasarkan probabilitas tertinggi
-    return sorted(results, key=lambda x: x['probability'], reverse=True)
+        # Cek apakah semua gejala wajib dipenuhi
+        if not all(symptom in selected_symptoms for symptom in required_symptoms):
+            continue  # Skip penyakit ini kalau gejala wajibnya tidak terpenuhi
+
+        # Hitung skor kecocokan berdasarkan bobot gejala
+        score = sum(weighted_symptoms.get(str(symptom), 0) for symptom in selected_symptoms)
+
+        # Simpan hasil diagnosa
+        diagnosis_result.append((name, score, skincare))
+
+    conn.close()
+
+    # Urutkan hasil berdasarkan skor tertinggi
+    diagnosis_result.sort(key=lambda x: x[1], reverse=True)
+
+    return diagnosis_result[:1]  # Ambil hasil dengan skor tertinggi
