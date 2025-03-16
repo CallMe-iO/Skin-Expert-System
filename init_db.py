@@ -1,4 +1,4 @@
-from models.database import create_tables
+from models.setup_database import create_tables
 from config.db_config import get_db_connection  # <-- TAMBAHKAN INI
 import json  # <-- TAMBAHKAN INI UNTUK HANDLE JSON
 

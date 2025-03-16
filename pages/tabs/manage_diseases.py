@@ -1,6 +1,6 @@
 import streamlit as st
 import json
-from models.database import get_all, get_by_id, get_all_symptoms
+from models.setup_database import get_all, get_by_id, get_all_symptoms
 
 def show():
     st.header("Kelola Penyakit")
