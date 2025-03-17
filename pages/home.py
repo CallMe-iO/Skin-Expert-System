@@ -44,3 +44,4 @@ with tab2:
             st.write(f"💡 Rekomendasi Skincare: {', '.join(diagnosis['skincare'])}")
         else:
             st.warning("❌ Tidak ada penyakit yang cocok dengan gejala yang dipilih.")
+        
