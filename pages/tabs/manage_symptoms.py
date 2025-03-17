@@ -1,5 +1,5 @@
 import streamlit as st
-from models.database import get_all, add_symptom
+from models.setup_database import get_all, add_symptom
 from utils.helpers import validate_input
 
 def show():

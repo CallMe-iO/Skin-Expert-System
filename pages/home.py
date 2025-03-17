@@ -1,47 +1,47 @@
 import streamlit as st
-from models.database import get_all
-from models.logic import forward_chaining
-from utils.styles import load_custom_css
+from models.logic import forward_chaining, forward_chaining_weighted
+from models.database import get_symptoms  # Ambil daftar gejala dari database
 
-def show_home_page():
-    load_custom_css()
-    st.title("Diagnosa Penyakit Kulit Wajah")
-    
-    # Ambil gejala dari database
-    symptoms = get_all('symptoms')
-    
-    # Tampilkan gejala dalam bentuk grid
-    selected = []
-    cols = st.columns(3)
-    
-    for idx, symptom in enumerate(symptoms):
-        with cols[idx % 3]:
-            with st.container(border=True):
-                if symptom['image_path']:
-                    st.image(symptom['image_path'], width=150)
-                if st.checkbox(symptom['name'], key=symptom['id']):
-                    selected.append(symptom['id'])
-    
-    if st.button("Mulai Diagnosa"):
-        if len(selected) < 1:
-            st.warning("Pilih minimal 1 gejala")
+st.title("Sistem Pakar Diagnosis Penyakit Kulit Wajah")
+
+# Membuat dua tab untuk metode FC dan FC berbobot
+tab1, tab2 = st.tabs(["🔎 Diagnosa IF-THEN", "⚖️ Diagnosa dengan Bobot"])
+
+# Ambil daftar gejala dari database (id dan nama)
+symptoms_dict = get_symptoms()  # { "1": "Kulit kemerahan", "2": "Gatal", ... }
+symptom_names = list(symptoms_dict.values())  # Hanya ambil nama gejala
+
+# Tab 1: Diagnosa dengan Aturan IF-THEN
+with tab1:
+    st.subheader("Diagnosa Menggunakan Forward Chaining (IF-THEN)")
+    selected_symptoms = st.multiselect("Pilih Gejala yang Anda Alami:", symptom_names, key="fc_ifthen")
+
+    if st.button("Diagnosa - IF THEN"):
+        # Konversi nama gejala yang dipilih menjadi ID
+        selected_ids = [k for k, v in symptoms_dict.items() if v in selected_symptoms]
+        
+        diagnosis = forward_chaining(selected_ids)
+        if diagnosis:
+            st.success(f"✅ Hasil Diagnosa: **{diagnosis['penyakit']}**")
+            st.write(f"📝 Penjelasan: {diagnosis['deskripsi']}")
+            st.write(f"💡 Rekomendasi Skincare: {', '.join(diagnosis['skincare'])}")
         else:
-            results = forward_chaining(selected)
-            if results:
-                show_result(results[0])
-            else:
-                st.error("Tidak ditemukan penyakit yang sesuai")
+            st.warning("❌ Tidak ada penyakit yang cocok dengan gejala yang dipilih.")
 
-def show_result(result):
-    disease = result['disease']
-    with st.container(border=True):
-        st.subheader(f"Hasil Diagnosa: {disease['name']}")
+# Tab 2: Diagnosa dengan Bobot
+with tab2:
+    st.subheader("Diagnosa Menggunakan Forward Chaining dengan Bobot")
+    selected_symptoms_weighted = st.multiselect("Pilih Gejala yang Anda Alami:", symptom_names, key="fc_bobot")
+
+    if st.button("Diagnosa - Bobot"):
+        # Konversi nama gejala yang dipilih menjadi ID
+        selected_ids_weighted = [k for k, v in symptoms_dict.items() if v in selected_symptoms_weighted]
+
+        diagnosis = forward_chaining_weighted(selected_ids_weighted)
+        if diagnosis:
+            st.success(f"✅ Hasil Diagnosa: **{diagnosis['penyakit']}** (Skor: {diagnosis['skor']:.2f})")
+            st.write(f"📝 Penjelasan: {diagnosis['deskripsi']}")
+            st.write(f"💡 Rekomendasi Skincare: {', '.join(diagnosis['skincare'])}")
+        else:
+            st.warning("❌ Tidak ada penyakit yang cocok dengan gejala yang dipilih.")
         
-        col1, col2 = st.columns([1, 2])
-        with col1:
-            if disease['disease_image']:
-                st.image(disease['disease_image'], width=200)
-        
-        with col2:
-            st.markdown(f"**Deskripsi:** {disease['description']}")
-            st.markdown(f"**Rekomendasi Skincare:** {disease['skincare_recommendation']}")
